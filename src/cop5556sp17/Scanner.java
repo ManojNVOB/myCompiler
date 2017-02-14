@@ -1,11 +1,11 @@
 package cop5556sp17;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import cop5556sp17.Scanner.Kind;
 
 public class Scanner {
-	
+
 	//pos: the position of the next character to be processed
 	int pos = 0; 
 		
@@ -90,7 +90,6 @@ public class Scanner {
 		}
 	}
 	
-
 	/**
 	 * Holds the line and position in the line of a token.
 	 */
@@ -111,8 +110,6 @@ public class Scanner {
 	}
 		
 
-	
-
 	public class Token {
 		public final Kind kind;
 		//store line number of the token and first character position in line 
@@ -123,7 +120,7 @@ public class Scanner {
 		//returns the text of this Token
 		public String getText() {
 			if(kind == Kind.EOF){
-				return null;	
+				return "eof";	
 			}else{
 				String tokenString = chars.substring(pos, pos+length);
 				return tokenString;
@@ -152,6 +149,8 @@ public class Scanner {
 			}
 			 
 		}
+
+		
 		/** 
 		 * Precondition:  kind = Kind.INT_LIT,  the text can be represented with a Java int.
 		 * Note that the validity of the input should have been checked when the Token was created.
@@ -171,27 +170,29 @@ public class Scanner {
 			return (int) number;
 		}
 		
-	}
+		public boolean isKind(Kind kind) {
+			if(this.kind == kind ){
+				return true;
+				}
+				else{
+					return false;
+				}
+			}
+		}
 
 	 
-
-
-	Scanner(String chars) {
-		this.chars = chars;
-		tokens = new ArrayList<Token>();
-	}
-
-
+		Scanner(String chars) {
+			this.chars = chars;
+			tokens = new ArrayList<Token>();
+		}
 	
 	private char getChar(int pos){
 		
 		if(pos < chars.length()){
 			return chars.charAt(pos);
-		}else{//deal with EOF
+		}else{
 			return (char)-1;
-		}
-		
-		
+		}				
 	}
 
 	
@@ -215,17 +216,19 @@ public class Scanner {
 	public Scanner scan() throws IllegalCharException, IllegalNumberException {
 		
 		Token t = null;
+		pos = 0;
+		state = State.START;
 		initializeKeywords();
 		do{
-		//System.out.println("perform next()");
-			t = nextFoundToken();
+		//perform next
+			t = nextTokenExtracted();
 			tokens.add(t);		
 		}while(t.kind!=Kind.EOF);
 		
 		return this;		
 		}
 
-	public Token nextFoundToken() throws IllegalCharException, IllegalNumberException {
+	public Token nextTokenExtracted() throws IllegalCharException, IllegalNumberException {
 		Token token =null;
 		int length = chars.length();
 		//State transitions happen in the while loop processing the tokens
@@ -239,13 +242,10 @@ public class Scanner {
 					pos += numWhiteSpace;
 					currCharPosition += numWhiteSpace;
 					currChar = pos < length ? chars.charAt(pos): (char) -1;
-					/*if(currChar == -1)
-						break;*/
 					startPosition = pos; 
 					switch(currChar){
 						case (char)-1:
 						    state = State.EOF;
-							pos++;
 							break;
 						case '\n':
 							linePosition++;
@@ -365,7 +365,7 @@ public class Scanner {
 						int cntNewLines = -1;
 						do{
 							cntNewLines++;
-							commentChars = skipCommentChars(pos);
+							commentChars = getCommentCharsCount(pos);
 							pos += commentChars;
 						}while(chars.charAt(pos-1) == '\n');
 						linePosition += cntNewLines;
@@ -377,7 +377,7 @@ public class Scanner {
 					else{
 						posInLine = new LinePos(linePosition, currCharPosition);
 						token = new Token(Kind.DIV, startPosition, 1,posInLine );
-						pos++;
+						//pos++;
 					}
 					state = State.START;
 					break;
@@ -402,7 +402,7 @@ public class Scanner {
 						currCharPosition++;
 					}
 					else{
-						Kind kind = keywordKind(chars.substring(startPosition, pos));
+						Kind kind = getKind(chars.substring(startPosition, pos));
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
 						token = new Token(kind, startPosition, tokenLength, posInLine );
@@ -413,7 +413,7 @@ public class Scanner {
 					if(currChar == '='){
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
-						token = new Token(Kind.EQUAL, startPosition, tokenLength, posInLine );
+						token = new Token(Kind.EQUAL, startPosition, tokenLength+1, posInLine );
 						pos++;
 						currCharPosition++;
 						state = State.START;
@@ -452,12 +452,16 @@ public class Scanner {
 					if(currChar == '>'){
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
-						token = new Token(Kind.BARARROW, startPosition, tokenLength, posInLine );
+						token = new Token(Kind.BARARROW, startPosition, tokenLength+1, posInLine );
 						pos++;
 						currCharPosition++;
 					}
 					else{
-						throw new IllegalCharException("illegal operator");
+						tokenLength  = 1;
+						posInLine = new LinePos(linePosition, currCharPosition-tokenLength);
+						token = new Token(Kind.OR,startPosition,tokenLength,posInLine );
+						pos--;
+						currCharPosition--;
 					}
 					state = State.START;
 					break;
@@ -466,7 +470,7 @@ public class Scanner {
 					if(currChar == '='){
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
-						token = new Token(Kind.GE, startPosition, tokenLength, posInLine );
+						token = new Token(Kind.GE, startPosition, tokenLength+1, posInLine );
 						pos++;
 						currCharPosition++;
 					}
@@ -480,14 +484,14 @@ public class Scanner {
 					if(currChar == '='){
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
-						token = new Token(Kind.LE, startPosition, tokenLength, posInLine );
+						token = new Token(Kind.LE, startPosition, tokenLength+1, posInLine );
 						pos++;
 						currCharPosition++;
 					}
 					else if(currChar == '-'){
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
-						token = new Token(Kind.ASSIGN, startPosition, tokenLength, posInLine );
+						token = new Token(Kind.ASSIGN, startPosition, tokenLength+1, posInLine );
 						pos++;
 						currCharPosition++;
 					}
@@ -501,7 +505,7 @@ public class Scanner {
 					if(currChar == '>'){
 						tokenLength = pos-startPosition;
 						posInLine = new LinePos(linePosition, currCharPosition-tokenLength+1);
-						token = new Token(Kind.ARROW, startPosition, tokenLength, posInLine );
+						token = new Token(Kind.ARROW, startPosition, tokenLength+1, posInLine );
 						pos++;
 						currCharPosition++;
 					}
@@ -518,73 +522,86 @@ public class Scanner {
 	}
 	
 
-
-	//skip characters in comment block
-	//Return number of characters skipped, next character to be processed will be curr_pos + <return val>
-	private int skipCommentChars(int pos) {
-		int ch;
-		int len = chars.length();
-		int orig = pos;
-		while((pos < len) && (ch  = chars.charAt(pos)) != -1){
-			switch(ch){
-				case '*':
-					pos++;
-					break;
-				case '/':
-					if(chars.charAt(pos-1) == '*'){
-						pos++;
-						return pos - orig;
-					}
-				case '\r':
-					pos++;
-				case '\n':
-					pos++;
-					return pos - orig;
-				default:
-					pos++;
-					break;
+	private int getCommentCharsCount(int currLoc) {
+		if(currLoc>chars.length()){
+			System.out.println("invalid:current char location exceeds input length");
+			System.exit(1);
+		}
+		else{
+		char currChar = chars.charAt(currLoc);
+		int startLoc = currLoc;
+		while(currChar  != (char)-1){
+			if(currChar=='/'){
+				if( currLoc!=startLoc && chars.charAt(currLoc-1) == '*'  ){
+					currLoc++;
+					return currLoc - startLoc;
+				}
+				else{
+					currLoc++;
+				}
+			}
+			else if(currChar=='\n'){
+				currLoc++;
+				return currLoc - startLoc;
+			}
+			else{
+				currLoc++;
+			}
+			if(currLoc<chars.length()){
+				currChar = chars.charAt(currLoc);
+			}
+			else{
+				break;
 			}
 		}
-		return pos - orig;
+		return currLoc - startLoc;
+		}
+		return -1;
 	}
+	
+		
 	// hash map to store all the keywords
 	Map<String, Kind> keywordMap;
 	//store all the keywords in the keywordMap
 	private void initializeKeywords(){
-		keywordMap = new HashMap<String, Kind>();
 		
+		keywordMap = new HashMap<String, Kind>();
+		keywordMap.put("integer", Kind.KW_INTEGER);
 		keywordMap.put("boolean", Kind.KW_BOOLEAN );
-		keywordMap.put("false", Kind.KW_FALSE);
+		keywordMap.put("show", Kind.KW_SHOW);
 		keywordMap.put("file", Kind.KW_FILE);
 		keywordMap.put("frame", Kind.KW_FRAME);
-		keywordMap.put("hide", Kind.KW_HIDE);
 		keywordMap.put("if", Kind.KW_IF);
-		keywordMap.put("image", Kind.KW_IMAGE);
-		keywordMap.put("integer", Kind.KW_INTEGER);
+		keywordMap.put("hide", Kind.KW_HIDE);
 		keywordMap.put("move", Kind.KW_MOVE);
-		keywordMap.put("scale", Kind.KW_SCALE);
-		keywordMap.put("screenheight", Kind.KW_SCREENHEIGHT);
-		keywordMap.put("screenwidth", Kind.KW_SCREENWIDTH);
-		keywordMap.put("show", Kind.KW_SHOW);
 		keywordMap.put("true", Kind.KW_TRUE);
+		keywordMap.put("false", Kind.KW_FALSE);
 		keywordMap.put("url", Kind.KW_URL);
 		keywordMap.put("while", Kind.KW_WHILE);
-		keywordMap.put("xloc", Kind.KW_XLOC);
-		keywordMap.put("yloc", Kind.KW_YLOC);
 		keywordMap.put("blur", Kind.OP_BLUR);
 		keywordMap.put("convolve", Kind.OP_CONVOLVE);
 		keywordMap.put("gray", Kind.OP_GRAY);
 		keywordMap.put("height", Kind.OP_HEIGHT);
+		keywordMap.put("image", Kind.KW_IMAGE);
 		keywordMap.put("sleep", Kind.OP_SLEEP);
 		keywordMap.put("width", Kind.OP_WIDTH);
+		keywordMap.put("screenheight", Kind.KW_SCREENHEIGHT);
+		keywordMap.put("screenwidth", Kind.KW_SCREENWIDTH);
+		keywordMap.put("xloc", Kind.KW_XLOC);
+		keywordMap.put("yloc", Kind.KW_YLOC);
+		keywordMap.put("scale", Kind.KW_SCALE);
+
+
 	}
-	//Return kind of keyword
-	private Kind keywordKind(String keyword) {
+	
+	 Kind getKind(String keyword) {
 		Kind kind = keywordMap.get(keyword);
-		if(kind == null)
-			return Kind.IDENT;
-		else
+		if(kind != null){
 			return kind;
+		}	
+		else{
+			return Kind.IDENT;
+		}			
 	}
 
 
@@ -626,13 +643,14 @@ public class Scanner {
 		return t.tokenPosition;
 	}
 	
-	//skips white spaces starting from start position
+	// get the count of wihte spaces
 	private int whiteSpaceCount(int start) {
 		int end = start;
-		int len = chars.length();
-		while(end < len && Character.isWhitespace(chars.charAt(end)) && chars.charAt(end) != '\n' )
+		int spaceCount = 0;
+		while(end < chars.length() && Character.isWhitespace(chars.charAt(end)) && chars.charAt(end) != '\n' )
 			end++;
-		return (end  - start);
+		spaceCount = end-start; 
+		return spaceCount;
 	}
 
 

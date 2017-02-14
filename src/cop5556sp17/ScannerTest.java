@@ -18,9 +18,16 @@ public class ScannerTest {
 	
 	@Test
 	public void testEmpty() throws IllegalCharException, IllegalNumberException {
-		String input = "";
+		String input = "ifwhile;if;while;boolean;boolean0;integer;integer32|->frame->-image";
+		input = "p/100";
 		Scanner scanner = new Scanner(input);
 		scanner.scan();
+		
+		int i = 0;
+		while(i < scanner.tokens.size()){
+			System.out.println(scanner.nextToken().getText());
+			i++;
+		}
 	}
 
 	@Test
@@ -69,5 +76,4 @@ public class ScannerTest {
 		thrown.expect(IllegalNumberException.class);
 		scanner.scan();		
 	}
-
 }
