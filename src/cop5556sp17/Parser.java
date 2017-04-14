@@ -1,5 +1,6 @@
 package cop5556sp17;
 
+import cop5556sp17.Scanner.IllegalNumberException;
 import cop5556sp17.Scanner.Kind;
 import static cop5556sp17.Scanner.Kind.*;
 
@@ -8,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import cop5556sp17.Scanner.Token;
+import cop5556sp17.AST.*;
 
 public class Parser {
 
@@ -40,10 +42,10 @@ public class Parser {
 	 * 
 	 * @throws SyntaxException
 	 */
-	void parse() throws SyntaxException {
-		program();
+	ASTNode parse() throws SyntaxException {
+		ASTNode rootNode = program();
 		matchEOF();
-		return;
+		return rootNode;
 	}
 
 
@@ -52,26 +54,30 @@ public class Parser {
 					 program = IDENT param_dec ( , param_dec )* block
 	 * @throws SyntaxException
 	 */
-	void program() throws SyntaxException {
+	Program program() throws SyntaxException {
+		Block block;
+		ArrayList<ParamDec> list = new ArrayList();
+		Token firstToken = t;
 		match(IDENT);
 		if(t.isKind(LBRACE)){
-			block();
+			block = block();
 		}
-		else if(oneOfKinds(KW_URL,KW_FILE,KW_INTEGER,KW_BOOLEAN )){
+		else if(oneOfKinds(KW_URL,KW_FILE,KW_INTEGER,KW_BOOLEAN )){			
 			do{
 				if(t.isKind(COMMA)){
 					consume();
-					paramDec();
+					list.add(paramDec());
 				}
 				else{
-					paramDec();	
+					list.add(paramDec());	
 				}
 			}while(t.isKind(COMMA));
-			block();
+			block = block();
 		}
 		else{
 			throw new SyntaxException("saw " + t.kind + " expected one of KW_URL,KW_FILE,KW_INTEGER,KW_BOOLEAN");
 		}
+		return new Program(firstToken, list, block);
 	}
 	
 	
@@ -79,21 +85,26 @@ public class Parser {
 	 *  Production: block = { ( dec | statement) * }
 	 * @throws SyntaxException
 	 */
-	void block() throws SyntaxException {
+	Block block() throws SyntaxException {
+		Token firstToken = t;
+		ArrayList<Dec> decList = new ArrayList();
+		ArrayList<Statement> statementList = new ArrayList();
 		match(LBRACE);
 			while(true){
 				if(oneOfKinds(OP_SLEEP,KW_WHILE,KW_IF,IDENT,OP_BLUR,OP_GRAY,OP_CONVOLVE,KW_SHOW,KW_HIDE,KW_MOVE,
 						KW_XLOC,KW_YLOC,OP_WIDTH,OP_HEIGHT,KW_SCALE )){
-					statement();
+					
+					statementList.add(statement());
 				}
 				else if(oneOfKinds(KW_INTEGER,KW_BOOLEAN,KW_IMAGE,KW_FRAME)){
-					dec();
+					decList.add(dec());
 				}
 				else{
 					break;
 				}
 			}
 		match(RBRACE);
+		return new Block(firstToken, decList, statementList);
 	}
 	
 
@@ -101,9 +112,10 @@ public class Parser {
 	 *  Production: paramDec = ( KW_URL | KW_FILE | KW_INTEGER | KW_BOOLEAN ) IDENT
 	 * @throws SyntaxException
 	 */
-	void paramDec() throws SyntaxException {
-		match(KW_URL,KW_FILE,KW_INTEGER,KW_BOOLEAN);
-		match(IDENT);		
+	ParamDec paramDec() throws SyntaxException {
+		Token type = match(KW_URL,KW_FILE,KW_INTEGER,KW_BOOLEAN);
+		Token ident = match(IDENT);
+		return new ParamDec(type,ident);
 	}
 
 
@@ -111,35 +123,50 @@ public class Parser {
 	 *  Production: statement = OP_SLEEP expression SEMI | whileStatement | ifStatement | chain SEMI | assign SEMI
 	 * @throws SyntaxException
 	 */
-	void statement() throws SyntaxException {
+	Statement statement() throws SyntaxException {
+		Token firstToken = t;
+		Statement statement=null;
 		if(t.isKind(OP_SLEEP)){
 			consume();
-			expression();
+			Expression exp = expression();
 			match(SEMI);
+			statement = new SleepStatement(firstToken, exp);
 		}
 		else if(oneOfKinds(KW_WHILE,KW_IF)){
 			match(KW_WHILE,KW_IF);
 			match(LPAREN);
-			expression();
+			Expression exp = expression();
 			match(RPAREN);
-			block();
+			Block block = block();
+			if(firstToken.isKind(KW_IF)){
+				statement =  new IfStatement(firstToken, exp, block);
+			}
+			else if(firstToken.isKind(KW_WHILE)){
+				statement =  new WhileStatement(firstToken, exp, block);
+			}
 		}
 		else if(oneOfKinds(OP_BLUR, OP_GRAY,OP_CONVOLVE,KW_SHOW,KW_HIDE,KW_MOVE,KW_XLOC,KW_YLOC,OP_WIDTH,OP_HEIGHT,KW_SCALE)){
-			chain();
+			statement = chain();
 			match(SEMI);
 		}
 		else if(t.isKind(IDENT)){
 			Token next = scanner.peek();
 			if (next.isKind(ASSIGN)){
+				IdentLValue ident = new IdentLValue(firstToken);
 				match(IDENT);
 				match(ASSIGN);
-				expression();
+				Expression exp = expression();
+				statement = new AssignmentStatement(firstToken, ident, exp);
 			}
 			else{
-				chain();
+				statement = chain();
 			}
 			match(SEMI);
 		}
+		else{
+			throw new SyntaxException("expected sleepOp or if or while or filterOp or frameOP or imageOp or ident but found " + t.kind);
+		}
+		return statement;
 	}
 
 
@@ -147,17 +174,24 @@ public class Parser {
 	 *  Production: chain = chainElem arrowOp chainElem ( arrowOp chainElem)*
 	 * @throws SyntaxException
 	 */
-	void chain() throws SyntaxException {
+	Chain chain() throws SyntaxException {
+		Token firstToken = t, arrow;
+		Chain currChain;
+		ChainElem nextChain;
 		boolean firstIter = true;
-		chainElem();		
+		
+		currChain = chainElem();
+		
 		loop:while(true){
 			if(firstIter){
+				arrow =t;
 				match(ARROW,BARARROW);
 				firstIter = false;
 			}
 			else{
 				
 				if(oneOfKinds(ARROW,BARARROW)){
+					arrow = t;
 					consume();
 				}
 				else{
@@ -165,8 +199,10 @@ public class Parser {
 				}
 				
 			}
-			chainElem();
+			nextChain = chainElem();
+			currChain = new BinaryChain(firstToken, currChain, arrow, nextChain);
 		}
+		return currChain;
 	}
 
 
@@ -174,14 +210,31 @@ public class Parser {
 	 *  Production: chainElem = IDENT | filterOp arg | frameOp arg | imageOp arg
 	 * @throws SyntaxException
 	 */
-	void chainElem() throws SyntaxException {
+	ChainElem chainElem() throws SyntaxException {
+		Token firstToken = t;
+		ChainElem chainElem;
+		Tuple arg;
 		if(t.isKind(IDENT)){
+			chainElem = new IdentChain(firstToken);
 			consume();
 		}
-		else{
-			match(OP_BLUR,OP_GRAY,OP_CONVOLVE,KW_SHOW,KW_HIDE,KW_MOVE,KW_XLOC,KW_YLOC,OP_WIDTH,OP_HEIGHT,KW_SCALE);
-			arg();
+		else if(oneOfKinds(OP_BLUR,OP_GRAY,OP_CONVOLVE)){
+			consume();
+			arg = arg();
+			chainElem = new FilterOpChain(firstToken, arg);
 		}
+		else if(oneOfKinds(KW_SHOW,KW_HIDE,KW_MOVE,KW_XLOC,KW_YLOC)){
+			consume();
+			arg = arg();
+			chainElem = new FrameOpChain(firstToken, arg);
+		}
+		else if(oneOfKinds(OP_WIDTH,OP_HEIGHT,KW_SCALE)){
+			consume();
+			arg = arg();
+			chainElem = new ImageOpChain(firstToken, arg);
+		}		
+		else throw new SyntaxException("expected frameOps or Ident or ImageOps but found " + t.kind);
+		return chainElem;
 	}
 
 
@@ -189,14 +242,19 @@ public class Parser {
 	 *  Production: arg = epsilon | ( expression ( , expression)* )
 	 * @throws SyntaxException
 	 */
-	void arg() throws SyntaxException {
+	Tuple arg() throws SyntaxException {
+		Token firstToken = t;
+		List<Expression> args = new ArrayList();
+		Expression exp;
 		if(t.isKind(LPAREN)){
 			do{
 				consume();
-				expression();
+				exp = expression();
+				args.add(exp);
 			}while(t.isKind(COMMA));
 			match(RPAREN);
 		}
+		return new Tuple(firstToken,args);
 	}
 	
 
@@ -204,17 +262,24 @@ public class Parser {
 	 * Production: expression = term ( relOp term)*
 	 * @throws SyntaxException
 	 */
-	void expression() throws SyntaxException {		
-		term();
+	Expression expression() throws SyntaxException {
+		Token firstToken=t, relOP;
+		Expression prevExp, currExp, nextExp;
+		currExp = term();
+		prevExp = currExp;
 		while(true){
 			if(oneOfKinds(GE,GT,LE,LT,EQUAL,NOTEQUAL)){
+				relOP = t;
 				consume();
-				term();
+				nextExp = term();
+				currExp =  new BinaryExpression(firstToken, prevExp, relOP, nextExp);
+				prevExp =currExp;
 			}
 			else{
 				break;
 			}
 		}
+		return currExp;
 	}
 
 
@@ -222,17 +287,24 @@ public class Parser {
 	 *  Production: term = elem ( weakOp elem)*
 	 * @throws SyntaxException
 	 */
-	void term() throws SyntaxException {
-		elem();
+	Expression term() throws SyntaxException {
+		Token firstToken=t, weakOp;
+		Expression currExp, prevExp, nextExp;
+		currExp = elem();
+		prevExp = currExp;
 		while(true){
 			if(oneOfKinds(PLUS,MINUS,OR)){
+				weakOp =t;
 				consume();
-				elem();
+				nextExp = elem();
+				currExp = new BinaryExpression(firstToken, prevExp, weakOp, nextExp);
+				prevExp = currExp;
 			}
 			else{
 				break;
 			}
 		}
+		return currExp;
 	}
 	
 	
@@ -240,17 +312,24 @@ public class Parser {
 	 *  Production: elem = factor ( strongOp factor)*
 	 * @throws SyntaxException
 	 */
-	void elem() throws SyntaxException {
-		factor();
+	Expression elem() throws SyntaxException {
+		Token firstToken=t, strongOp;
+		Expression currExp, prevExp, nextExp;
+		currExp = factor();
+		prevExp  = currExp;
 		while(true){
 			if(oneOfKinds(TIMES,DIV,MOD,AND)){
+				strongOp =t;
 				consume();
-				elem();
+				nextExp =  elem();
+				currExp = new BinaryExpression(firstToken, prevExp, strongOp, nextExp);
+				prevExp = currExp;
 			}
 			else{
 				break;
 			}
 		}
+		return currExp;
 	}
 
 	
@@ -258,22 +337,56 @@ public class Parser {
 	 *  Production: factor = IDENT | INT_LIT | KW_TRUE | KW_FALSE| KW_SCREENWIDTH | KW_SCREENHEIGHT | ( expression )
 	 * @throws SyntaxException
 	 */
-	void factor() throws SyntaxException {
-		Kind kind = t.kind;
-		Token previous = match(IDENT,INT_LIT,KW_TRUE,KW_FALSE,KW_SCREENWIDTH,KW_SCREENHEIGHT,LPAREN);
-		if(previous.isKind(LPAREN)){
-			expression();
+	Expression factor() throws SyntaxException {
+		Token firstToken = t;
+		Expression exp = null;
+		//Token previous = match(IDENT,INT_LIT,KW_TRUE,KW_FALSE,KW_SCREENWIDTH,KW_SCREENHEIGHT,LPAREN);
+		switch (t.kind) {
+		case IDENT: 
+			exp = new IdentExpression(firstToken);
+			consume();
+			break;
+		case INT_LIT: 
+			try {
+				exp = new IntLitExpression(firstToken);
+			} catch (NumberFormatException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IllegalNumberException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			consume();
+			break;
+		case KW_TRUE:
+		case KW_FALSE: 
+			exp = new BooleanLitExpression(firstToken);
+			consume();
+			break;
+		case KW_SCREENWIDTH:
+		case KW_SCREENHEIGHT: 
+			exp = new ConstantExpression(firstToken);
+			consume();
+			break;
+		case LPAREN: 
+			consume();
+			exp = expression();
 			match(RPAREN);
+			break;
+		default:
+			throw new SyntaxException("expected one of IDENT, INT_LIT, KW_TRUE, KW_FALSE, KW_SCREENWIDTH, KW_SCREENHEIGHT, LPAREN but found " + t.kind);
 		}
+		return exp;
 	}
 
 	/**
 	 *  Production: dec = ( KW_INTEGER | KW_BOOLEAN | KW_IMAGE | KW_FRAME ) IDENT
 	 * @throws SyntaxException
 	 */
-	void dec() throws SyntaxException {
-		match(KW_IMAGE,KW_FRAME,KW_INTEGER,KW_BOOLEAN);
-		match(IDENT);
+	Dec dec() throws SyntaxException {
+		Token type = match(KW_IMAGE,KW_FRAME,KW_INTEGER,KW_BOOLEAN);
+		Token ident = match(IDENT);
+		return new Dec(type,ident);
 	}
 	
 

@@ -3,5 +3,8 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="lib" path="D:/spring 2017 courses/PLP/modules/asm-5.1-bin/asm-5.1/lib/asm-5.1.jar"/>
+	<classpathentry kind="lib" path="D:/spring 2017 courses/PLP/modules/asm-5.1-bin/asm-5.1/lib/asm-commons-5.1.jar"/>
+	<classpathentry kind="lib" path="D:/spring 2017 courses/PLP/modules/asm-5.1-bin/asm-5.1/lib/asm-util-5.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

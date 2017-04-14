@@ -117,6 +117,50 @@ public class Scanner {
 		public final int pos;  //position in input string
 		public final int length;
 		
+		@Override
+		  public int hashCode() {
+		   final int prime = 31;
+		   int result = 1;
+		   result = prime * result + getOuterType().hashCode();
+		   result = prime * result + ((kind == null) ? 0 : kind.hashCode());
+		   result = prime * result + length;
+		   result = prime * result + pos;
+		   return result;
+		  }
+
+		  @Override
+		  public boolean equals(Object obj) {
+		   if (this == obj) {
+		    return true;
+		   }
+		   if (obj == null) {
+		    return false;
+		   }
+		   if (!(obj instanceof Token)) {
+		    return false;
+		   }
+		   Token other = (Token) obj;
+		   if (!getOuterType().equals(other.getOuterType())) {
+		    return false;
+		   }
+		   if (kind != other.kind) {
+		    return false;
+		   }
+		   if (length != other.length) {
+		    return false;
+		   }
+		   if (pos != other.pos) {
+		    return false;
+		   }
+		   return true;
+		  }
+
+		 
+
+		  private Scanner getOuterType() {
+		   return Scanner.this;
+		  }
+		
 		//returns the text of this Token
 		public String getText() {
 			if(kind == Kind.EOF){
@@ -178,7 +222,19 @@ public class Scanner {
 					return false;
 				}
 			}
+		
+		public boolean isOneOfKinds(Kind... kinds){
+			for(Kind kind:kinds){
+				if(this.kind == kind ){
+					return true;
+				}			
+			} 
+			return false;
 		}
+		
+		}
+	
+
 
 	 
 		Scanner(String chars) {
