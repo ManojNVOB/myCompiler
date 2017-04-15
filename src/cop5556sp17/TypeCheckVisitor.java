@@ -103,6 +103,9 @@ public class TypeCheckVisitor implements ASTVisitor {
 				if((chainElem instanceof ImageOpChain) && firstToken.isOneOfKinds(OP_WIDTH,OP_HEIGHT)){
 					binaryChain.setIdentType(INTEGER);
 				}
+				else if((chainElem instanceof IdentChain) && chainElemType.isType(IMAGE) ){
+					binaryChain.setIdentType(IMAGE);
+				}				
 				else if(chainElemType.isType(FRAME)){
 					binaryChain.setIdentType(FRAME);
 				}
@@ -119,10 +122,19 @@ public class TypeCheckVisitor implements ASTVisitor {
 					throw new TypeCheckException("expected frame or file etc.  with image");
 				}
 			}
+			else if(chainType.isType(INTEGER)){
+				 if((chainElem instanceof IdentChain) && chainElemType.isType(INTEGER) ){
+						binaryChain.setIdentType(INTEGER);
+					}
+				 else{
+					 throw new TypeCheckException("expected chain type as Integer, chain elem as instance of IdentChain and chain elem type as integer");
+				 }
+			}
 			else{
 				throw new TypeCheckException("expected chain type as image or frame etc.");
 			}		
 		}
+
 		else{
 			throw new TypeCheckException("expected arrow or bar arrow"); 
 		}
@@ -203,7 +215,6 @@ public class TypeCheckVisitor implements ASTVisitor {
 			dec.visit(this, null);
 		}
 		for(Statement statement: statements){
-			System.out.println(statement);
 			statement.visit(this, null);
 		}
 		symtab.leaveScope();

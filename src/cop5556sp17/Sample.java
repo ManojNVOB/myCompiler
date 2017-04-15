@@ -1,12 +1,20 @@
 package cop5556sp17;
 
+
+import java.io.File;
+import java.net.URL;
+
 public class Sample implements Runnable{
-	public  int i;
-	public boolean b;
+	//public  int i;
+	//public boolean b;
+	URL url;
+	public File file;
 	
 	Sample(String[] args){
-		i = Integer.parseInt(args[0]);
+		//i = Integer.parseInt(args[0]);
 		//b= Boolean.valueOf(args[1]);
+		file = new File(args[0]);
+		url = PLPRuntimeImageIO.getURL(args, 1);
 	}
 /*	public static void main(String[] args) {
 		new Sample(args).run();
@@ -22,26 +30,8 @@ public class Sample implements Runnable{
 	}*/
 	public static void main(String[] args){
 		
-		int i=0;
-		i=0;
-		if(i!=0){
-			//int j=0;
-			//int k=1;
-			i=i+1;
-		}
-		
-		i=3;
-		//int j=5;
-		if(i!=0){
-			i=i+1;
-		}
-		//int l=1;
-		//int m=2;
 	}
-		
-/*	while(i<3){
-		i=i+1;
-	}*/
+
 
 	@Override
 	public void run() {

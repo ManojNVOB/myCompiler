@@ -321,7 +321,7 @@ public class Parser {
 			if(oneOfKinds(TIMES,DIV,MOD,AND)){
 				strongOp =t;
 				consume();
-				nextExp =  elem();
+				nextExp =  factor();
 				currExp = new BinaryExpression(firstToken, prevExp, strongOp, nextExp);
 				prevExp = currExp;
 			}

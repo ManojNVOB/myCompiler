@@ -3,6 +3,9 @@ package cop5556sp17;
 
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -12,7 +15,7 @@ import cop5556sp17.AST.Program;
 
 public class CodeGenVisitorTest {
 
-	static final boolean doPrint = true;
+	static final boolean doPrint = false;
 	static void show(Object s) {
 		if (doPrint) {
 			System.out.println(s);
@@ -21,6 +24,15 @@ public class CodeGenVisitorTest {
 
 	boolean devel = false;
 	boolean grade = true;
+	
+	@Before
+	public void initLog(){
+	if (devel || grade) PLPRuntimeLog.initLog();
+	}
+	@After
+	public void printLog(){
+	System.out.println(PLPRuntimeLog.getString());
+	}
 	
 
 	@Test
@@ -42,6 +54,7 @@ public class CodeGenVisitorTest {
 		//show(program);
 		
 		//generate code
+		
 		CodeGenVisitor cv = new CodeGenVisitor(devel,grade,null);
 		byte[] bytecode = (byte[]) program.visit(cv, null);
 		
@@ -105,10 +118,30 @@ public class CodeGenVisitorTest {
 	public void emptyProg() throws Exception {
 		//scan, parse, and type check the program
 		String progname = "emptyProg";
-/*		String input = progname + " boolean x, boolean y {"
-				+ "if(i){"
-				+ "}}";	*/	
-		String input = progname + "{} ";
+		String input = progname + "div  {integer i \ninteger j \ni <-33; \nj <- 3; \nj <- i/j;\n}";		
+/*		String input = progname + "compProg0 "
+				+ "{ integer a0 a0<-0;if(a0 == 0)"
+				+ "{integer a00 integer b00 integer c00 "
+				+ "integer d00 integer e00 e00 <- 5; d00 <- 4; c00 <- 3; b00 <- 2; a00 <- 1;"
+				+ " if(a00 == 1)"
+				+ "{integer a01 integer b01 integer c01 integer d01 integer e01"
+				+ " e01 <- 55; d01 <- 44; c01 <- 33; b01 <- 22; a01 <- 11; "
+				+ "}"
+				+ "}"
+				+ "}" ;*/
+		//String input = progname + "compProg1 integer a, integer b, integer c, boolean bool0 { a <- 4;  b <- 5; boolean boolA  boolean boolB  boolA <- true;  boolB <- false;  if(boolA == true)  {boolean a a <- boolA; bool0 <- false;while(a != boolB){integer d  integer e c <- 3 + 5; d <- 10 - 1; c <- c * d; e <- d / 3; a <- boolB;if(c > d) {     c <- d;     if(c <= d)     {        boolA <- false;    }    if(boolA < boolB)     {        c <- 0;    }}} } if(c >= 1) {     /*boolB <- bool0 | true;*/} a <- 7;}";
+/*		String input = progname +"compProg2 integer x, integer y, integer z, boolean bool_1, boolean bool_2 "
+				+ "{ \nx <- 100; \ny <- x / 3 * 2; \nz <- y; \nbool_1 <- false; \nbool_2 <- true;"
+				+ " \ninteger y \ny <- z + 20; \nz <- y; "
+				+ "\nif(bool_2){ \nboolean bool_1 \nbool_1 <- bool_2;\n} \n"
+				+ "if(bool_1) { \ninteger err \nerr <- 2333; \n} \ninteger pass_token \npass_token <- 0; "
+				+ "\nwhile(pass_token != 4){ \ninteger local_1 \ninteger local_2 \nlocal_1 <- 45; \nlocal_2 <- 46;"
+				+ " \nif(local_1 != local_2) {pass_token <- pass_token + 1;} "
+				+ "\nif(local_1 == local_2){pass_token <- pass_token + 1;} \nif(local_1 > local_2) {pass_token <- pass_token + 1;} "
+				+ "\nif(local_1 >= 45) {pass_token <- pass_token + 1;} "
+				+ "\nif(local_1 < local_2) "
+				+ "{pass_token <- pass_token + 1;} \nif(46 <= local_2) {pass_token <- pass_token + 1;} "
+				+ "\nif((local_1 > local_2)) {pass_token <- pass_token + 1;} \n} \n} ";*/
 		Scanner scanner = new Scanner(input);
 		scanner.scan();
 		Parser parser = new Parser(scanner);
@@ -116,6 +149,7 @@ public class CodeGenVisitorTest {
 		TypeCheckVisitor v = new TypeCheckVisitor();
 		program.visit(v, null);
 		//show(program);
+		
 		
 		//generate code
 		CodeGenVisitor cv = new CodeGenVisitor(devel,grade,null);
@@ -130,10 +164,11 @@ public class CodeGenVisitorTest {
 		OutputStream output = new FileOutputStream(classFileName);
 		output.write(bytecode);
 		output.close();
-		System.out.println("wrote classfile to " + classFileName);
+		//System.out.println("wrote classfile to " + classFileName);
 		
 		// directly execute bytecode
-		String[] args = new String[0]; //create command line argument array to initialize params, none in this case
+		//String[] args = new String[0]; //create command line argument array to initialize params, none in this case
+		String[] args = {"0","0","0","true","true"}; //create command line argument array to initialize params, none in this case
 		Runnable instance = CodeGenUtils.getInstance(name, bytecode, args);
 		instance.run();
 	}

@@ -219,6 +219,7 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 	public Object visitAssignmentStatement(AssignmentStatement assignStatement, Object arg) throws Exception {
 		mv.visitVarInsn(ALOAD, 0);
 		assignStatement.getE().visit(this, arg);
+		
 		CodeGenUtils.genPrint(DEVEL, mv, "\nassignment: " + assignStatement.var.getText() + "=");
 		CodeGenUtils.genPrintTOS(GRADE, mv, assignStatement.getE().getIdentType());
 		assignStatement.getVar().visit(this, arg);
@@ -258,6 +259,9 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 		}
 		else if(operator.kind==AND){
 			mv.visitInsn(IAND);
+		}
+		else if(operator.kind==DIV){
+			mv.visitInsn(IDIV);
 		}
 		else if(operator.kind==EQUAL){
 			goIn = new Label();
@@ -492,23 +496,51 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 		mv.visitLabel(l0);*/
 		TypeName decType = paramDec.getIdentType();
 		String ident = paramDec.getIdent().getText();
-		mv.visitVarInsn(ALOAD, 0);
-		mv.visitVarInsn(ALOAD, 1);
-		mv.visitIntInsn(BIPUSH, argIndex++);
-		mv.visitInsn(AALOAD);
+		FieldVisitor fv = null;
+
 		if(decType.equals(TypeName.INTEGER)){
-			FieldVisitor fv = cw.visitField(ACC_PUBLIC, ident, "I", null, null);
+			fv = cw.visitField(ACC_PUBLIC, ident, "I", null, null);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitIntInsn(BIPUSH, argIndex++);
+			mv.visitInsn(AALOAD);			
 			mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(Ljava/lang/String;)Ljava/lang/Integer;", false);
 			mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Integer", "intValue", "()I", false);
 			mv.visitFieldInsn(PUTFIELD, className, ident, "I");
 			
 		}
 		else if(decType.equals(TypeName.BOOLEAN)){
-			FieldVisitor fv = cw.visitField(ACC_PUBLIC, ident, "Z", null, null);
+			fv = cw.visitField(ACC_PUBLIC, ident, "Z", null, null);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitIntInsn(BIPUSH, argIndex++);
+			mv.visitInsn(AALOAD);			
 			mv.visitMethodInsn(INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Ljava/lang/String;)Ljava/lang/Boolean;", false);
 			mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false);
 			mv.visitFieldInsn(PUTFIELD, className, ident, "Z");
+		}		
+		else if(decType.equals(TypeName.URL)){
+			fv = cw.visitField(ACC_PUBLIC, ident, PLPRuntimeImageIO.URLDesc, null, null);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitIntInsn(BIPUSH, argIndex++);
+			mv.visitMethodInsn(INVOKESTATIC,PLPRuntimeImageIO.className, "getURL", PLPRuntimeImageIO.getURLSig, false);
+			mv.visitFieldInsn(PUTFIELD,className, ident,PLPRuntimeImageIO.URLDesc);
+			
 		}
+		else if(decType.equals(TypeName.FILE)){
+			fv = cw.visitField(ACC_PUBLIC, ident, PLPRuntimeImageIO.FileDesc, null, null);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitTypeInsn(NEW, "java/io/File");
+			mv.visitInsn(DUP);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitIntInsn(BIPUSH, argIndex++);
+			mv.visitInsn(AALOAD);
+			mv.visitMethodInsn(INVOKESPECIAL, "java/io/File", "<init>", "("+PLPRuntimeImageIO.StringDesc+")V", false);
+			mv.visitFieldInsn(PUTFIELD, className, ident, PLPRuntimeImageIO.FileDesc);
+			
+		}
+		fv.visitEnd();
 		return null;
 
 	}
