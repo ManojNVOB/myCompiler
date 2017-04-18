@@ -58,7 +58,7 @@ public class ParserTest {
 
 	@Test
 	public void testParamDecRec() throws IllegalCharException, IllegalNumberException, SyntaxException{
-		String input = " main integer x,integer y,integer z{}";
+		String input = " main integer x,integer y{}";
 		Parser parser = new Parser(new Scanner(input).scan());
 		parser.parse();
 	}

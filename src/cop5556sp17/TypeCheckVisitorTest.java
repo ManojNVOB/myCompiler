@@ -56,7 +56,8 @@ public class TypeCheckVisitorTest {
 	
 	@Test
 	public void testBinaryExpression() throws Exception{
-		String input = " main integer i, integer j { image x integer y x<-x*y; i>=j;  } ";
+		String input = " main integer i, integer j { image x integer y x<-x*y; i>=j;} ";
+		//String input = " main integer i, integer j {} ";
 		Scanner scanner = new Scanner(input);
 		scanner.scan();
 		Parser parser = new Parser(scanner);

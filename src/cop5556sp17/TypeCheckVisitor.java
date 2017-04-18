@@ -115,9 +115,6 @@ public class TypeCheckVisitor implements ASTVisitor {
 				else if((chainElem instanceof ImageOpChain) && firstToken.isKind(KW_SCALE)){
 					binaryChain.setIdentType(IMAGE);
 				}
-				else if(chainElem instanceof IdentChain){
-					binaryChain.setIdentType(IMAGE);
-				}
 				else{
 					throw new TypeCheckException("expected frame or file etc.  with image");
 				}
@@ -179,9 +176,12 @@ public class TypeCheckVisitor implements ASTVisitor {
 				throw new TypeCheckException("Expected operands of type Image or Integer but found "+exp0Type+", "+ exp1Type);
 			}
 		}
-		else if(op.isKind(DIV)){
+		else if(op.isOneOfKinds(DIV,MOD)){
 			if(exp0Type==INTEGER && exp1Type==INTEGER){
 				binaryExpression.setIdentType(INTEGER);
+			}
+			else if(exp0Type==IMAGE && exp1Type==INTEGER){
+				binaryExpression.setIdentType(IMAGE);
 			}
 			else{
 				throw new TypeCheckException("Expected both as Integer operands but found "+exp0Type+", "+ exp1Type);
@@ -200,6 +200,18 @@ public class TypeCheckVisitor implements ASTVisitor {
 				throw new TypeCheckException("left and right of equals should be of same type but found "+exp0Type+", "+exp1Type);
 			}
 		}
+		else if(op.isOneOfKinds(AND,OR)){
+			if(exp0Type==INTEGER && exp1Type==INTEGER){
+				binaryExpression.setIdentType(INTEGER);
+			}
+			else if(exp0Type==BOOLEAN && exp1Type==BOOLEAN){
+				binaryExpression.setIdentType(BOOLEAN);
+			}
+			else{
+				throw new TypeCheckException("Expected both as Integer operands but found "+exp0Type+", "+ exp1Type);
+			}
+		}
+		
 		else{
 			throw new TypeCheckException("Expected binary operand but found "+op.getText());
 		}
@@ -285,6 +297,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 		
 		String identifier = ident.getText();
 		Dec dec = symtab.lookup(identifier);
+		identChain.setDec(dec);
 		if(dec!=null){
 			identChain.setIdentType(dec.getIdentType());
 		}

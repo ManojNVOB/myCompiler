@@ -15,6 +15,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.TraceClassVisitor;
 
+import com.sun.javafx.scene.control.skin.FXVK.Type;
+
 import cop5556sp17.Scanner.Kind;
 import cop5556sp17.Scanner.Token;
 import cop5556sp17.AST.ASTVisitor;
@@ -47,6 +49,7 @@ import cop5556sp17.AST.WhileStatement;
 import cop5556sp17.AST.Type.TypeName;
 import static cop5556sp17.AST.Type.TypeName.FRAME;
 import static cop5556sp17.AST.Type.TypeName.IMAGE;
+import static cop5556sp17.AST.Type.TypeName.INTEGER;
 import static cop5556sp17.AST.Type.TypeName.URL;
 import static cop5556sp17.Scanner.Kind.*;
 
@@ -211,7 +214,6 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 				tempEnd = stmtBlk.getEndLabel();
 				visitBlockLocals(stmtBlk,start,end);
 			}
-
 		}
 	}
 
@@ -228,7 +230,31 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 
 	@Override
 	public Object visitBinaryChain(BinaryChain binaryChain, Object arg) throws Exception {
-		assert false : "not yet implemented";
+		
+		Chain chain = binaryChain.getE0();
+		ChainElem chainElem = binaryChain.getE1();
+		Token op = binaryChain.getArrow();
+		
+		if(chainElem instanceof IdentChain){
+			IdentChain identChain = (IdentChain)chainElem;
+			TypeName identType = identChain.getIdentType();
+			int slot = identChain.getDec().getSlot();
+			// if a class field, then load reference on top of stack
+			if(slot==-1){
+				mv.visitVarInsn(ALOAD, 0);
+			}			
+		}	
+			
+		chain.visit(this, null);
+		
+		if(chain.getIdentType().equals(TypeName.URL)){
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeImageIO.className, "readFromURL", PLPRuntimeImageIO.readFromURLSig,  false);
+		}
+		else if(chain.getIdentType().equals(TypeName.FILE)){
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeImageIO.className, "readFromFile", PLPRuntimeImageIO.readFromFileDesc,  false);
+		}
+		
+		chainElem.visit(this, binaryChain);
 		return null;
 	}
 
@@ -238,21 +264,58 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 		Token operator = binaryExpression.getOp();
 		Expression exp0 = binaryExpression.getE0();		
 		Expression exp1 = binaryExpression.getE1();
+		TypeName exp0Type = exp0.getIdentType();
+		TypeName exp1Type = exp1.getIdentType();
 		Label goIn, goOut;
-		exp0.visit(this, arg);
-		exp1.visit(this, arg);
 		
+		 if((exp0Type==TypeName.INTEGER && exp1Type==TypeName.IMAGE)){
+			 exp1.visit(this, arg);
+			 exp0.visit(this, arg);
+		 }
+		 else{
+			exp0.visit(this, arg);
+			exp1.visit(this, arg);
+		 }
+			 		
 		if(operator.kind==PLUS){
-			mv.visitInsn(IADD);
+			if(exp0Type==TypeName.INTEGER && exp1Type==TypeName.INTEGER){
+				mv.visitInsn(IADD);
+			}
+			else if(exp0Type==TypeName.IMAGE && exp1Type==TypeName.IMAGE){
+				mv.visitMethodInsn(INVOKESTATIC,
+						PLPRuntimeImageOps.JVMName, "add",PLPRuntimeImageOps.addSig, false);
+			}			
 		}
 		else if(operator.kind==MINUS){
-			mv.visitInsn(ISUB);
+			
+			if(exp0Type==TypeName.INTEGER && exp1Type==TypeName.INTEGER){
+				mv.visitInsn(ISUB);
+			}
+			else if(exp0Type==TypeName.IMAGE && exp1Type==TypeName.IMAGE){
+				mv.visitMethodInsn(INVOKESTATIC,
+						PLPRuntimeImageOps.JVMName, "sub",PLPRuntimeImageOps.subSig, false);
+			}
+						
 		}
 		else if(operator.kind==TIMES){
-			mv.visitInsn(IMUL);
+			
+			if(exp0Type==TypeName.INTEGER && exp1Type==TypeName.INTEGER){
+				mv.visitInsn(IMUL);
+			}
+			else if((exp0Type==TypeName.IMAGE && exp1Type==TypeName.INTEGER)||
+					(exp0Type==TypeName.INTEGER && exp1Type==TypeName.IMAGE)){
+				mv.visitMethodInsn(INVOKESTATIC,
+						PLPRuntimeImageOps.JVMName, "mul",PLPRuntimeImageOps.mulSig, false);
+			}			
 		}
 		else if(operator.kind==MOD){
-			mv.visitInsn(IREM);
+			if(exp0Type==TypeName.INTEGER && exp1Type==TypeName.INTEGER){
+				mv.visitInsn(IREM);
+			}
+			else if(exp0Type==TypeName.IMAGE && exp1Type==TypeName.INTEGER){
+				mv.visitMethodInsn(INVOKESTATIC,
+						PLPRuntimeImageOps.JVMName, "mod",PLPRuntimeImageOps.modSig, false);
+			}
 		}
 		else if(operator.kind==OR){
 			mv.visitInsn(IOR);
@@ -260,8 +323,14 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 		else if(operator.kind==AND){
 			mv.visitInsn(IAND);
 		}
-		else if(operator.kind==DIV){
-			mv.visitInsn(IDIV);
+		else if(operator.kind==DIV){			
+			if(exp0Type==TypeName.INTEGER && exp1Type==TypeName.INTEGER){
+				mv.visitInsn(IDIV);
+			}
+			else if(exp0Type==TypeName.IMAGE && exp1Type==TypeName.INTEGER){
+				mv.visitMethodInsn(INVOKESTATIC,
+						PLPRuntimeImageOps.JVMName, "div",PLPRuntimeImageOps.divSig, false);
+			}
 		}
 		else if(operator.kind==EQUAL){
 			goIn = new Label();
@@ -353,6 +422,9 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 		}
 		for(Statement statement: statements){
 			statement.visit(this, arg);
+			if(statement instanceof BinaryChain){
+				mv.visitInsn(POP);
+			}
 		}
 		Label blockEndLabel = new Label();
 		mv.visitLabel(blockEndLabel);
@@ -378,31 +450,147 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 
 	@Override
 	public Object visitConstantExpression(ConstantExpression constantExpression, Object arg) {
-		assert false : "not yet implemented";
+		
+		if(constantExpression.getFirstToken().isKind(KW_SCREENWIDTH)){
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeFrame.JVMClassName, "getScreenWidth",PLPRuntimeFrame.getScreenWidthSig, false);
+		}
+		else if(constantExpression.getFirstToken().isKind(Kind.KW_SCREENHEIGHT)){
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeFrame.JVMClassName, "getScreenHeight",PLPRuntimeFrame.getScreenHeightSig, false);
+		}
 		return null;
 	}
 
 	@Override
 	public Object visitDec(Dec declaration, Object arg) throws Exception {
-		declaration.setSlot(runLocArrSlot++);
+		declaration.setSlot(runLocArrSlot);
+		if(declaration.getIdentType()==TypeName.FRAME){
+			mv.visitInsn(ACONST_NULL);
+			mv.visitVarInsn(ASTORE, runLocArrSlot);
+		}
+		runLocArrSlot++;
+		
 		return null;
 	}
 
 	@Override
 	public Object visitFilterOpChain(FilterOpChain filterOpChain, Object arg) throws Exception {
-		assert false : "not yet implemented";
+
+		BinaryChain binaryChain = (BinaryChain)arg;
+		Token op = binaryChain.getArrow();
+		Token firstToken = filterOpChain.getFirstToken();
+			
+		if(firstToken.kind.equals(OP_BLUR)){
+			mv.visitInsn(ACONST_NULL);	
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeFilterOps.JVMName, "blurOp", PLPRuntimeFilterOps.opSig, false);
+
+		}
+		else if(firstToken.kind.equals(OP_CONVOLVE)){
+			mv.visitInsn(ACONST_NULL);	
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeFilterOps.JVMName, "convolveOp", PLPRuntimeFilterOps.opSig, false);
+
+		}
+		else if(firstToken.kind.equals(OP_GRAY)){
+			if(op.kind.equals(BARARROW)){
+				mv.visitInsn(DUP);
+			}
+			else{
+				mv.visitInsn(ACONST_NULL);
+			}
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeFilterOps.JVMName, "grayOp", PLPRuntimeFilterOps.opSig, false);
+		}
 		return null;
 	}
 
 	@Override
 	public Object visitFrameOpChain(FrameOpChain frameOpChain, Object arg) throws Exception {
-		assert false : "not yet implemented";
+		
+		Tuple tuple = frameOpChain.getArg();
+		Token firstToken = frameOpChain.getFirstToken();
+		tuple.visit(this, arg);
+		
+		if(firstToken.kind.equals(KW_SHOW)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeFrame.JVMClassName, "showImage", PLPRuntimeFrame.showImageDesc, false);
+
+		}
+		else if(firstToken.kind.equals(KW_HIDE)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeFrame.JVMClassName, "hideImage", PLPRuntimeFrame.hideImageDesc, false);
+
+		}
+		else if(firstToken.kind.equals(KW_MOVE)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeFrame.JVMClassName, "moveFrame", PLPRuntimeFrame.moveFrameDesc, false);
+		}
+		else if(firstToken.kind.equals(KW_XLOC)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeFrame.JVMClassName, "getXVal", PLPRuntimeFrame.getXValDesc, false);
+		}
+		else if(firstToken.kind.equals(KW_YLOC)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeFrame.JVMClassName, "getYVal", PLPRuntimeFrame.getYValDesc, false);
+		}
+		
 		return null;
 	}
 
 	@Override
 	public Object visitIdentChain(IdentChain identChain, Object arg) throws Exception {
-		assert false : "not yet implemented";
+		Dec declaration = identChain.getDec();
+		int slot = declaration.getSlot();
+		TypeName identType = declaration.getIdentType();
+		String ident = declaration.getIdent().getText();
+		if(arg==null){
+
+			if(slot==-1){
+				mv.visitVarInsn(ALOAD, 0);
+				if(identType.equals(TypeName.URL)){
+					mv.visitFieldInsn(GETFIELD, className,ident, PLPRuntimeImageIO.URLDesc);
+				}
+				else if(identType.equals(TypeName.FILE)){
+					mv.visitFieldInsn(GETFIELD, className, ident, PLPRuntimeImageIO.FileDesc);
+				}
+				else if(identType.equals(TypeName.INTEGER)){
+					mv.visitFieldInsn(GETFIELD, className, ident, "I");
+				}				
+			}
+			else{
+				
+				if(identType.equals(TypeName.INTEGER)){
+					mv.visitVarInsn(ILOAD, slot);
+				}
+				else if(identType.equals(TypeName.IMAGE)||identType.equals(TypeName.FRAME)){
+					mv.visitVarInsn(ALOAD, slot);
+				}
+			}
+		}
+		else{			
+			if(slot==-1){				
+				if(identType.equals(TypeName.INTEGER)){
+					mv.visitFieldInsn(PUTFIELD, className,ident, "I");
+					mv.visitVarInsn(ALOAD, 0);
+					mv.visitFieldInsn(GETFIELD, className,ident, "I");
+				}
+				else if(identType.equals(TypeName.FILE)){
+					mv.visitVarInsn(ALOAD, 0);
+					mv.visitFieldInsn(GETFIELD, className, ident, PLPRuntimeImageIO.FileDesc);
+					mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeImageIO.className, "write", PLPRuntimeImageIO.writeImageDesc, false);
+					mv.visitInsn(POP);
+				}				
+			}
+			else{				
+				if(identType.equals(TypeName.INTEGER)){
+					mv.visitInsn(DUP);
+					mv.visitVarInsn(ISTORE, slot);
+				}
+				else if(identType.equals(TypeName.IMAGE)){
+					mv.visitInsn(DUP);
+					mv.visitVarInsn(ASTORE, slot);
+
+				}
+				else if(identType.equals(TypeName.FRAME)){
+					mv.visitVarInsn(ALOAD, slot);
+					mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeFrame.JVMClassName, "createOrSetFrame", PLPRuntimeFrame.createOrSetFrameSig, false);
+					mv.visitInsn(DUP);
+					mv.visitVarInsn(ASTORE, slot);
+				}
+			}					
+		}
 		return null;
 	}
 
@@ -421,9 +609,21 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 			else if(identType.equals(TypeName.BOOLEAN)){
 				mv.visitFieldInsn(GETFIELD, className, ident, "Z");
 			}
+			else if(identType.equals(TypeName.URL)){
+				mv.visitFieldInsn(GETFIELD, className, ident, PLPRuntimeImageIO.URLDesc);
+			}
+			else if(identType.equals(TypeName.FILE)){
+				mv.visitFieldInsn(GETFIELD, className, ident, PLPRuntimeImageIO.FileDesc);
+			}
 		}
 		else{
-			mv.visitVarInsn(ILOAD, slotNum);
+			if(identType.equals(TypeName.INTEGER)||identType.equals(TypeName.BOOLEAN)){
+				mv.visitVarInsn(ILOAD, slotNum);
+			}
+			else if(identType.equals(TypeName.IMAGE)||identType.equals(TypeName.FRAME)){
+				mv.visitVarInsn(ALOAD, slotNum);
+			}
+			
 		}
 		return null;
 	}
@@ -444,12 +644,28 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 			else if(identType.equals(TypeName.BOOLEAN)){
 				mv.visitFieldInsn(PUTFIELD, className, ident, "Z");
 			}
+			else if(identType.equals(TypeName.URL)){
+				mv.visitFieldInsn(PUTFIELD, className, ident,PLPRuntimeImageIO.URLDesc);
+			}
+			else if(identType.equals(TypeName.FILE)){
+				mv.visitFieldInsn(PUTFIELD, className, ident, PLPRuntimeImageIO.FileDesc);
+			}
 		}
 		else{
-			mv.visitVarInsn(ISTORE, slotNum);
-			mv.visitInsn(POP);
-		}
-		
+			if(identType.equals(TypeName.INTEGER)||identType.equals(TypeName.BOOLEAN)){
+				mv.visitVarInsn(ISTORE, slotNum);
+				mv.visitInsn(POP);
+			}
+			else if(identType.equals(TypeName.IMAGE)){
+				mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeImageOps.JVMName, "copyImage", PLPRuntimeImageOps.copyImageSig, false);
+				mv.visitVarInsn(ASTORE, slotNum);
+				mv.visitInsn(POP);
+			}
+			else if(identType.equals(TypeName.FRAME)){
+				mv.visitVarInsn(ASTORE, slotNum);
+				mv.visitInsn(POP);
+			}
+		}		
 		return null;
 
 	}
@@ -475,7 +691,22 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 
 	@Override
 	public Object visitImageOpChain(ImageOpChain imageOpChain, Object arg) throws Exception {
-		assert false : "not yet implemented";
+		Tuple tuple = imageOpChain.getArg();
+		Token firstToken = imageOpChain.getFirstToken();
+		tuple.visit(this, arg);
+		
+		if(firstToken.kind.equals(OP_HEIGHT)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeImageIO.BufferedImageClassName, "getHeight", PLPRuntimeImageOps.getHeightSig, false);
+
+		}
+		else if(firstToken.kind.equals(OP_WIDTH)){
+			mv.visitMethodInsn(INVOKEVIRTUAL, PLPRuntimeImageIO.BufferedImageClassName, "getWidth", PLPRuntimeImageOps.getWidthSig, false);
+
+		}
+		else if(firstToken.kind.equals(KW_SCALE)){
+			mv.visitMethodInsn(INVOKESTATIC, PLPRuntimeImageOps.JVMName, "scale", PLPRuntimeImageOps.scaleSig, false);
+
+		}		
 		return null;
 	}
 
@@ -547,13 +778,21 @@ public class CodeGenVisitor implements ASTVisitor, Opcodes {
 
 	@Override
 	public Object visitSleepStatement(SleepStatement sleepStatement, Object arg) throws Exception {
-		assert false : "not yet implemented";
+		
+		Expression exp = sleepStatement.getE();
+		exp.visit(this, arg);
+		mv.visitInsn(I2L);
+		mv.visitMethodInsn(INVOKESTATIC, "java/lang/Thread", "sleep", "(J)V", false);
+		
 		return null;
 	}
 
 	@Override
 	public Object visitTuple(Tuple tuple, Object arg) throws Exception {
-		assert false : "not yet implemented";
+		List<Expression> expList = tuple.getExprList();
+		for(Expression exp: expList){
+			exp.visit(this, arg);
+		}
 		return null;
 	}
 

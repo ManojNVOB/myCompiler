@@ -118,7 +118,7 @@ public class CodeGenVisitorTest {
 	public void emptyProg() throws Exception {
 		//scan, parse, and type check the program
 		String progname = "emptyProg";
-		String input = progname + "div  {integer i \ninteger j \ni <-33; \nj <- 3; \nj <- i/j;\n}";		
+		String input = progname + " { sleep 1;  }";		
 /*		String input = progname + "compProg0 "
 				+ "{ integer a0 a0<-0;if(a0 == 0)"
 				+ "{integer a00 integer b00 integer c00 "
@@ -148,7 +148,7 @@ public class CodeGenVisitorTest {
 		ASTNode program = parser.parse();
 		TypeCheckVisitor v = new TypeCheckVisitor();
 		program.visit(v, null);
-		//show(program);
+		show(program);
 		
 		
 		//generate code
@@ -168,7 +168,7 @@ public class CodeGenVisitorTest {
 		
 		// directly execute bytecode
 		//String[] args = new String[0]; //create command line argument array to initialize params, none in this case
-		String[] args = {"0","0","0","true","true"}; //create command line argument array to initialize params, none in this case
+		String[] args = {"x","y",}; //create command line argument array to initialize params, none in this case
 		Runnable instance = CodeGenUtils.getInstance(name, bytecode, args);
 		instance.run();
 	}
