@@ -32,10 +32,6 @@ import cop5556sp17.AST.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.sun.corba.se.spi.orbutil.fsm.State;
-
-import cop5556sp17.Scanner.Kind;
-import cop5556sp17.Scanner.LinePos;
 import cop5556sp17.Scanner.Token;
 import static cop5556sp17.AST.Type.TypeName.*;
 import static cop5556sp17.Scanner.Kind.ARROW;

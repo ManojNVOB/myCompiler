@@ -56,7 +56,7 @@ public class Parser {
 	 */
 	Program program() throws SyntaxException {
 		Block block;
-		ArrayList<ParamDec> list = new ArrayList();
+		ArrayList<ParamDec> list = new ArrayList<ParamDec>();
 		Token firstToken = t;
 		match(IDENT);
 		if(t.isKind(LBRACE)){
@@ -87,8 +87,8 @@ public class Parser {
 	 */
 	Block block() throws SyntaxException {
 		Token firstToken = t;
-		ArrayList<Dec> decList = new ArrayList();
-		ArrayList<Statement> statementList = new ArrayList();
+		ArrayList<Dec> decList = new ArrayList<Dec>();
+		ArrayList<Statement> statementList = new ArrayList<Statement>();
 		match(LBRACE);
 			while(true){
 				if(oneOfKinds(OP_SLEEP,KW_WHILE,KW_IF,IDENT,OP_BLUR,OP_GRAY,OP_CONVOLVE,KW_SHOW,KW_HIDE,KW_MOVE,
@@ -244,7 +244,7 @@ public class Parser {
 	 */
 	Tuple arg() throws SyntaxException {
 		Token firstToken = t;
-		List<Expression> args = new ArrayList();
+		List<Expression> args = new ArrayList<Expression>();
 		Expression exp;
 		if(t.isKind(LPAREN)){
 			do{

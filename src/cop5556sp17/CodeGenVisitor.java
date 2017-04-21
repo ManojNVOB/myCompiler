@@ -15,7 +15,6 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.TraceClassVisitor;
 
-import com.sun.javafx.scene.control.skin.FXVK.Type;
 
 import cop5556sp17.Scanner.Kind;
 import cop5556sp17.Scanner.Token;
